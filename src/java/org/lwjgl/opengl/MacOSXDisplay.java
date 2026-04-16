@@ -160,11 +160,10 @@ final class MacOSXDisplay implements DisplayImplementation {
 					parented, enableFullscreenModeAPI, enableHighDPI, peer_handle, window_handle);
             
 			if (fullscreen) {
-				// when going to fullscreen viewport is set to screen size by Cocoa, ignore this value
 				skipViewportValue = true;
-				// if starting in fullscreen then set initial viewport to displaymode size
-				current_viewport.put(2, mode.getWidth());
-				current_viewport.put(3, mode.getHeight());
+				float s = (enableHighDPI ? scaleFactor : 1f);
+				current_viewport.put(2, (int)(mode.getWidth()  * s));
+				current_viewport.put(3, (int)(mode.getHeight() * s));
 			}
 			
 			native_mode = nIsNativeMode(peer_handle);
@@ -638,7 +637,8 @@ final class MacOSXDisplay implements DisplayImplementation {
 	}
 	
 	public float getPixelScaleFactor() {
-		return (enableHighDPI && !Display.isFullscreen()) ? scaleFactor : 1f;
+		return 1f;
+		// return (enableHighDPI && !Display.isFullscreen()) ? scaleFactor : 1f;
 	}
 
 }

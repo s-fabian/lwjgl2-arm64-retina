@@ -58,37 +58,42 @@ JNIEXPORT void JNICALL Java_org_lwjgl_opengl_MacOSXNativeMouse_nGrabMouse(JNIEnv
 	}
 }
 
-JNIEXPORT void JNICALL Java_org_lwjgl_opengl_MacOSXNativeMouse_nSetCursorPosition(JNIEnv *env, jclass this, jobject window_handle, jint x, jint y) {
-	MacOSXWindowInfo *window_info = (MacOSXWindowInfo *)(*env)->GetDirectBufferAddress(env, window_handle);
-    
-	CGPoint p;
-	
-	if (window_info->fullscreen) {
-		NSPoint point = NSMakePoint(x, y);
-		
-		// convert point to window/screen coordinates
-		point = [window_info->view convertPoint:point fromView:nil];
-		
-		p.x = point.x;
-		p.y = point.y;
-	}
-	else {
-		NSRect screenRect = [[window_info->window screen] frame];
-		NSRect viewRect = [window_info->view frame];
-		NSRect winRect = [window_info->window frame];
-		
-		// get window coords of the view origin
-		NSPoint viewPoint = [window_info->view convertPoint:viewRect.origin fromView:nil];
-		
-		// convert y to screen coordinates, origin bottom left
-		p.y = winRect.origin.y + viewPoint.y + (viewRect.size.height - y - 1);
-		
-		p.x = winRect.origin.x + viewPoint.x + x;
-		// flip y coordinates (origin top left) to allow use with CGDisplayMoveCursorToPoint
-		p.y = screenRect.size.height - p.y - 1;
-	}
-	
-	CGDisplayMoveCursorToPoint(CGMainDisplayID(), p);
+JNIEXPORT void JNICALL Java_org_lwjgl_opengl_MacOSXNativeMouse_nSetCursorPosition
+(JNIEnv *env, jclass this, jobject window_handle, jint x, jint y) {
+    MacOSXWindowInfo *window_info =
+        (MacOSXWindowInfo *)(*env)->GetDirectBufferAddress(env, window_handle);
+
+    // Figure out the backing scale so we can convert from pixel to point space
+    CGFloat scale = 1.0;
+    if (window_info->view != nil &&
+        [window_info->view respondsToSelector:@selector(convertSizeToBacking:)]) {
+        NSSize s = [window_info->view convertSizeToBacking:NSMakeSize(1.0, 1.0)];
+        scale = s.width;
+    }
+    CGFloat px = (CGFloat)x / scale;   // back into points
+    CGFloat py = (CGFloat)y / scale;
+
+    CGPoint p;
+
+    if (window_info->fullscreen) {
+        NSPoint point = NSMakePoint(px, py);
+        point = [window_info->view convertPoint:point fromView:nil];
+        p.x = point.x;
+        p.y = point.y;
+    }
+    else {
+        NSRect screenRect = [[window_info->window screen] frame];
+        NSRect viewRect   = [window_info->view frame];
+        NSRect winRect    = [window_info->window frame];
+
+        NSPoint viewPoint = [window_info->view convertPoint:viewRect.origin fromView:nil];
+
+        p.y = winRect.origin.y + viewPoint.y + (viewRect.size.height - py - 1);
+        p.x = winRect.origin.x + viewPoint.x + px;
+        p.y = screenRect.size.height - p.y - 1;
+    }
+
+    CGDisplayMoveCursorToPoint(CGMainDisplayID(), p);
 }
 
 JNIEXPORT void JNICALL Java_org_lwjgl_opengl_MacOSXNativeMouse_nRegisterMouseListener(JNIEnv *env, jobject _this, jobject window_handle) {

@@ -64,6 +64,16 @@ static NSUInteger lastModifierFlags = 0;
 
 @implementation MacOSXKeyableWindow
 
+// Returns the view's backing scale factor (2.0 on retina when
+// wantsBestResolutionOpenGLSurface is YES, 1.0 otherwise).
+static CGFloat lwjglBackingScale(NSView *view) {
+    if (view != nil && [view respondsToSelector:@selector(convertSizeToBacking:)]) {
+        NSSize s = [view convertSizeToBacking:NSMakeSize(1.0, 1.0)];
+        return s.width;
+    }
+    return 1.0;
+}
+
 + (void) createWindow {
 	MacOSXWindowInfo *window_info = peer_info->window_info;
 	
@@ -77,7 +87,8 @@ static NSUInteger lastModifierFlags = 0;
     // Inform the view of its parent window info;
 	[window_info->view setParent:window_info];
 	
-	[window_info->view setWantsBestResolutionOpenGLSurface:NO];
+	// [window_info->view setWantsBestResolutionOpenGLSurface:YES];
+	[window_info->view setWantsBestResolutionOpenGLSurface:window_info->enableHighDPI];
 	
 	// set nsapp delegate for catching app quit events
 	[NSApp setDelegate:window_info->view];
@@ -426,8 +437,14 @@ static NSUInteger lastModifierFlags = 0;
 	long time = [event timestamp] * 1000000000;
 	jclass mouse_class = (*env)->GetObjectClass(env, _parent->jmouse);
 	jmethodID mousemove = (*env)->GetMethodID(env, mouse_class, "mouseMoved", "(FFFFFJ)V");
+	CGFloat scale = lwjglBackingScale(self);
 	NSPoint loc = [self convertPoint:[event locationInWindow] toView:nil];
-	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove, loc.x, loc.y, [event deltaX], [event deltaY], 0.0f, time);
+	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove,
+						(jfloat)(loc.x   * scale),
+						(jfloat)(loc.y   * scale),
+						(jfloat)([event deltaX] * scale),
+						(jfloat)([event deltaY] * scale),
+						0.0f, time);
 }
 
 - (void)rightMouseDragged:(NSEvent *)event {
@@ -438,8 +455,14 @@ static NSUInteger lastModifierFlags = 0;
 	long time = [event timestamp] * 1000000000;
 	jclass mouse_class = (*env)->GetObjectClass(env, _parent->jmouse);
 	jmethodID mousemove = (*env)->GetMethodID(env, mouse_class, "mouseMoved", "(FFFFFJ)V");
+	CGFloat scale = lwjglBackingScale(self);
 	NSPoint loc = [self convertPoint:[event locationInWindow] toView:nil];
-	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove, loc.x, loc.y, [event deltaX], [event deltaY], 0.0f, time);
+	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove,
+						(jfloat)(loc.x   * scale),
+						(jfloat)(loc.y   * scale),
+						(jfloat)([event deltaX] * scale),
+						(jfloat)([event deltaY] * scale),
+						0.0f, time);
 }
 
 - (void)otherMouseDragged:(NSEvent *)event {
@@ -450,8 +473,14 @@ static NSUInteger lastModifierFlags = 0;
 	long time = [event timestamp] * 1000000000;
 	jclass mouse_class = (*env)->GetObjectClass(env, _parent->jmouse);
 	jmethodID mousemove = (*env)->GetMethodID(env, mouse_class, "mouseMoved", "(FFFFFJ)V");
+	CGFloat scale = lwjglBackingScale(self);
 	NSPoint loc = [self convertPoint:[event locationInWindow] toView:nil];
-	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove, loc.x, loc.y, [event deltaX], [event deltaY], 0.0f, time);
+	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove,
+						(jfloat)(loc.x   * scale),
+						(jfloat)(loc.y   * scale),
+						(jfloat)([event deltaX] * scale),
+						(jfloat)([event deltaY] * scale),
+						0.0f, time);
 }
 
 - (void)mouseMoved:(NSEvent *)event {
@@ -462,8 +491,14 @@ static NSUInteger lastModifierFlags = 0;
 	long time = [event timestamp] * 1000000000;
 	jclass mouse_class = (*env)->GetObjectClass(env, _parent->jmouse);
 	jmethodID mousemove = (*env)->GetMethodID(env, mouse_class, "mouseMoved", "(FFFFFJ)V");
+	CGFloat scale = lwjglBackingScale(self);
 	NSPoint loc = [self convertPoint:[event locationInWindow] toView:nil];
-	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove, loc.x, loc.y, [event deltaX], [event deltaY], 0.0f, time);
+	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove,
+						(jfloat)(loc.x   * scale),
+						(jfloat)(loc.y   * scale),
+						[event deltaX],
+						[event deltaY],
+						0.0f, time);
 }
 
 - (void)scrollWheel:(NSEvent *)event {
@@ -474,8 +509,14 @@ static NSUInteger lastModifierFlags = 0;
 	long time = [event timestamp] * 1000000000;
 	jclass mouse_class = (*env)->GetObjectClass(env, _parent->jmouse);
 	jmethodID mousemove = (*env)->GetMethodID(env, mouse_class, "mouseMoved", "(FFFFFJ)V");
+	CGFloat scale = lwjglBackingScale(self);
 	NSPoint loc = [self convertPoint:[event locationInWindow] toView:nil];
-	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove, loc.x, loc.y, [event deltaX], [event deltaY], 1.0f, time);
+	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove,
+						(jfloat)(loc.x   * scale),
+						(jfloat)(loc.y   * scale),
+						[event deltaX],
+						[event deltaY],
+						0.0f, time);
 }
 
 - (void)viewDidMoveToWindow {
@@ -483,6 +524,11 @@ static NSUInteger lastModifierFlags = 0;
 											selector:@selector(windowResized:)
 											name:NSWindowDidResizeNotification
 											object:[self window]];
+
+	// Send the initial scale factor to Java immediately upon creation
+    if ([self window] != nil) {
+        [self viewDidChangeBackingProperties];
+    }
 }
 
 - (void)dealloc {
@@ -499,6 +545,11 @@ static NSUInteger lastModifierFlags = 0;
 }
 
 - (void)viewDidChangeBackingProperties {
+	// Add this safety check:
+    if ([self window] == nil) {
+        return;
+    }
+
 	JNIEnv *env = attachCurrentThread();
 	if (env == nil || _parent == nil || _parent->jdisplay == nil) {
 		return;
@@ -507,6 +558,12 @@ static NSUInteger lastModifierFlags = 0;
 	jclass display_class = (*env)->GetObjectClass(env, _parent->jdisplay);
 	jmethodID setScaleFactor_callback = (*env)->GetMethodID(env, display_class, "setScaleFactor", "(F)V");
 	
+    if (setScaleFactor_callback == NULL) {
+        if ((*env)->ExceptionCheck(env))
+            (*env)->ExceptionClear(env);
+        return;
+    }
+
 	CGFloat scaleFactor;
 	
 	// call method using runtime selector as its a 10.7+ api and allows compiling on older SDK's
@@ -606,15 +663,25 @@ JNIEXPORT jboolean JNICALL Java_org_lwjgl_opengl_MacOSXDisplay_nWasResized(JNIEn
 }
 
 JNIEXPORT jint JNICALL Java_org_lwjgl_opengl_MacOSXDisplay_nGetWidth(JNIEnv *env, jobject this, jobject window_handle) {
-	MacOSXWindowInfo *window_info = (MacOSXWindowInfo *)(*env)->GetDirectBufferAddress(env, window_handle);
-	jint width = window_info->display_rect.size.width;
-	return width;
+    MacOSXWindowInfo *window_info = (MacOSXWindowInfo *)(*env)->GetDirectBufferAddress(env, window_handle);
+    if (window_info->view != nil &&
+        [window_info->view respondsToSelector:@selector(convertSizeToBacking:)]) {
+        NSSize pointSize   = window_info->display_rect.size;
+        NSSize backingSize = [window_info->view convertSizeToBacking:pointSize];
+        return (jint)backingSize.width;
+    }
+    return (jint)window_info->display_rect.size.width;
 }
 
 JNIEXPORT jint JNICALL Java_org_lwjgl_opengl_MacOSXDisplay_nGetHeight(JNIEnv *env, jobject this, jobject window_handle) {
-	MacOSXWindowInfo *window_info = (MacOSXWindowInfo *)(*env)->GetDirectBufferAddress(env, window_handle);
-	jint height = window_info->display_rect.size.height;
-	return height;
+    MacOSXWindowInfo *window_info = (MacOSXWindowInfo *)(*env)->GetDirectBufferAddress(env, window_handle);
+    if (window_info->view != nil &&
+        [window_info->view respondsToSelector:@selector(convertSizeToBacking:)]) {
+        NSSize pointSize   = window_info->display_rect.size;
+        NSSize backingSize = [window_info->view convertSizeToBacking:pointSize];
+        return (jint)backingSize.height;
+    }
+    return (jint)window_info->display_rect.size.height;
 }
 
 JNIEXPORT void JNICALL Java_org_lwjgl_opengl_MacOSXDisplay_nSetResizable(JNIEnv *env, jobject this, jobject window_handle, jboolean resizable) {
