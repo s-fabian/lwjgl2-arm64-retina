@@ -237,7 +237,10 @@ static CGFloat lwjglBackingScale(NSView *view) {
 }
 
 - (void) _surfaceNeedsUpdate:(NSNotification*)notification {
-	[self update];
+	if (_parent != nil) {
+		_parent->display_rect = [self frame];
+        _parent->resized = JNI_TRUE;
+    }
 }
 
 - (void)setOpenGLContext:(NSOpenGLContext*)context {
@@ -262,7 +265,7 @@ static CGFloat lwjglBackingScale(NSView *view) {
 }
 
 - (void)lockFocus {
-	[super lockFocus];
+	// [super lockFocus];
 	
 	NSOpenGLContext* context = [self openGLContext];
 	
@@ -438,7 +441,7 @@ static CGFloat lwjglBackingScale(NSView *view) {
 	jclass mouse_class = (*env)->GetObjectClass(env, _parent->jmouse);
 	jmethodID mousemove = (*env)->GetMethodID(env, mouse_class, "mouseMoved", "(FFFFFJ)V");
 	CGFloat scale = lwjglBackingScale(self);
-	NSPoint loc = [self convertPoint:[event locationInWindow] toView:nil];
+	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
 	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove,
 						(jfloat)(loc.x   * scale),
 						(jfloat)(loc.y   * scale),
@@ -456,7 +459,7 @@ static CGFloat lwjglBackingScale(NSView *view) {
 	jclass mouse_class = (*env)->GetObjectClass(env, _parent->jmouse);
 	jmethodID mousemove = (*env)->GetMethodID(env, mouse_class, "mouseMoved", "(FFFFFJ)V");
 	CGFloat scale = lwjglBackingScale(self);
-	NSPoint loc = [self convertPoint:[event locationInWindow] toView:nil];
+	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
 	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove,
 						(jfloat)(loc.x   * scale),
 						(jfloat)(loc.y   * scale),
@@ -474,7 +477,7 @@ static CGFloat lwjglBackingScale(NSView *view) {
 	jclass mouse_class = (*env)->GetObjectClass(env, _parent->jmouse);
 	jmethodID mousemove = (*env)->GetMethodID(env, mouse_class, "mouseMoved", "(FFFFFJ)V");
 	CGFloat scale = lwjglBackingScale(self);
-	NSPoint loc = [self convertPoint:[event locationInWindow] toView:nil];
+	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
 	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove,
 						(jfloat)(loc.x   * scale),
 						(jfloat)(loc.y   * scale),
@@ -492,7 +495,7 @@ static CGFloat lwjglBackingScale(NSView *view) {
 	jclass mouse_class = (*env)->GetObjectClass(env, _parent->jmouse);
 	jmethodID mousemove = (*env)->GetMethodID(env, mouse_class, "mouseMoved", "(FFFFFJ)V");
 	CGFloat scale = lwjglBackingScale(self);
-	NSPoint loc = [self convertPoint:[event locationInWindow] toView:nil];
+	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
 	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove,
 						(jfloat)(loc.x   * scale),
 						(jfloat)(loc.y   * scale),
@@ -510,7 +513,7 @@ static CGFloat lwjglBackingScale(NSView *view) {
 	jclass mouse_class = (*env)->GetObjectClass(env, _parent->jmouse);
 	jmethodID mousemove = (*env)->GetMethodID(env, mouse_class, "mouseMoved", "(FFFFFJ)V");
 	CGFloat scale = lwjglBackingScale(self);
-	NSPoint loc = [self convertPoint:[event locationInWindow] toView:nil];
+	NSPoint loc = [self convertPoint:[event locationInWindow] fromView:nil];
 	(*env)->CallVoidMethod(env, _parent->jmouse, mousemove,
 						(jfloat)(loc.x   * scale),
 						(jfloat)(loc.y   * scale),
@@ -548,6 +551,17 @@ static CGFloat lwjglBackingScale(NSView *view) {
 	// Add this safety check:
     if ([self window] == nil) {
         return;
+    }
+
+    if (_openGLContext != nil) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [_openGLContext update];
+        });
+    }
+
+    if (_parent != nil) {
+        _parent->display_rect = [self frame];
+        _parent->resized = JNI_TRUE;
     }
 
 	JNIEnv *env = attachCurrentThread();
@@ -769,6 +783,7 @@ JNIEXPORT jobject JNICALL Java_org_lwjgl_opengl_MacOSXDisplay_nCreateWindow(JNIE
 	window_info->parented = parented;
 	window_info->enableFullscreenModeAPI = enableFullscreenModeAPI;
 	window_info->enableHighDPI = enableHighDPI;
+	window_info->resized = JNI_TRUE;
 	
 	peer_info->window_info = window_info;
 	peer_info->isWindowed = true;

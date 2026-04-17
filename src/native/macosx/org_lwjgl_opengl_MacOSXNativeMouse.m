@@ -70,7 +70,7 @@ JNIEXPORT void JNICALL Java_org_lwjgl_opengl_MacOSXNativeMouse_nSetCursorPositio
         NSSize s = [window_info->view convertSizeToBacking:NSMakeSize(1.0, 1.0)];
         scale = s.width;
     }
-    CGFloat px = (CGFloat)x / scale;   // back into points
+    CGFloat px = (CGFloat)x / scale;
     CGFloat py = (CGFloat)y / scale;
 
     CGPoint p;

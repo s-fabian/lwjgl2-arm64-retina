@@ -154,11 +154,16 @@ final class MacOSXDisplay implements DisplayImplementation {
 		ByteBuffer window_handle = parented ? ((MacOSXCanvasPeerInfo)peer_info).window_handle : window;
 		
 		try {
-			
 			window = nCreateWindow(x, y, mode.getWidth(), mode.getHeight(),
 					fullscreen, isUndecorated(), resizable,
 					parented, enableFullscreenModeAPI, enableHighDPI, peer_handle, window_handle);
             
+			if (enableHighDPI) {
+				skipViewportValue = true;
+				current_viewport.put(2, nGetWidth(window));
+				current_viewport.put(3, nGetHeight(window));
+			}
+
 			if (fullscreen) {
 				skipViewportValue = true;
 				float s = (enableHighDPI ? scaleFactor : 1f);
